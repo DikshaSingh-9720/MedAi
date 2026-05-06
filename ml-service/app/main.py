@@ -277,10 +277,9 @@ def _predict_batch(bundle: ModalityBundle, pil: Image.Image) -> tuple[np.ndarray
         probs = probs / s
     return probs, names
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    load_all_modalities()
+    print("ML service started (lazy loading enabled)")
     yield
 
 
