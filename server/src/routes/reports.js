@@ -1,9 +1,12 @@
 import axios from "axios";
 import { v2 as cloudinary } from "cloudinary";
 import express from "express";
+import fs from "fs/promises";
 import FormData from "form-data";
 import mongoose from "mongoose";
 import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import { guestUser } from "../middleware/auth.js";
 import Report from "../models/Report.js";
@@ -26,6 +29,8 @@ const ML_URL = process.env.ML_SERVICE_URL || "http://127.0.0.1:8000";
 const ALLOWED_MODALITIES = new Set(["xray", "ct", "ultrasound", "mri"]);
 const isDbReady = () => mongoose.connection.readyState === 1;
 const memoryReportsByUser = new Map();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsRoot = path.join(__dirname, "..", "..", "uploads");
 
 function getCloudinaryConfig() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "";
@@ -66,6 +71,24 @@ function uploadBufferToCloudinary(buffer, { originalname, studyModality, userId 
     );
     stream.end(buffer);
   });
+}
+
+async function saveBufferLocally(buffer, { originalname, studyModality, userId }) {
+  const ext = path.extname(String(originalname || "")).toLowerCase() || ".jpg";
+  const safeBase = String(originalname || "image")
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 60);
+  const filename = `${String(userId)}_${Date.now()}_${safeBase || "scan"}${ext}`;
+  const relDir = path.join(studyModality);
+  const absDir = path.join(uploadsRoot, relDir);
+  await fs.mkdir(absDir, { recursive: true });
+  const absPath = path.join(absDir, filename);
+  await fs.writeFile(absPath, buffer);
+  return {
+    secure_url: `/uploads/${studyModality}/${filename}`,
+    public_id: "",
+  };
 }
 
 function normalizeUltrasoundResult(classScores, fallbackResult = "") {
@@ -109,11 +132,6 @@ router.get("/", async (req, res) => {
 
 router.post("/", upload.single("image"), async (req, res) => {
   const { enabled: cloudinaryEnabled } = getCloudinaryConfig();
-  if (!cloudinaryEnabled) {
-    return res.status(503).json({
-      error: "Cloudinary not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.",
-    });
-  }
   if (!req.file) return res.status(400).json({ error: "No image file (field name: image)" });
 
   const studyModality = normalizeModality(req.body?.modality);
@@ -124,20 +142,13 @@ router.post("/", upload.single("image"), async (req, res) => {
     const mlForm = new FormData();
     mlForm.append("file", req.file.buffer, { filename: req.file.originalname, contentType: req.file.mimetype });
     mlForm.append("modality", studyModality);
-    const [uploaded, mlResponse] = await Promise.all([
-      uploadBufferToCloudinary(req.file.buffer, {
-        originalname: req.file.originalname,
-        studyModality,
-        userId: req.userId,
-      }),
-      axios.post(`${ML_URL}/predict`, mlForm, {
-        headers: mlForm.getHeaders(),
-        timeout: 300000,
-        maxBodyLength: Infinity,
-        maxContentLength: Infinity,
-        validateStatus: () => true,
-      }),
-    ]);
+    const mlResponse = await axios.post(`${ML_URL}/predict`, mlForm, {
+      headers: mlForm.getHeaders(),
+      timeout: 300000,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      validateStatus: () => true,
+    });
 
     if (mlResponse.status >= 400) {
       const detail = mlResponse.data?.detail || mlResponse.data?.message || JSON.stringify(mlResponse.data || {});
@@ -145,6 +156,30 @@ router.post("/", upload.single("image"), async (req, res) => {
     }
 
     const data = mlResponse.data;
+    let uploaded;
+    if (cloudinaryEnabled) {
+      try {
+        uploaded = await uploadBufferToCloudinary(req.file.buffer, {
+          originalname: req.file.originalname,
+          studyModality,
+          userId: req.userId,
+        });
+      } catch (e) {
+        console.warn("Cloudinary upload failed; falling back to local uploads:", e?.message || e);
+        uploaded = await saveBufferLocally(req.file.buffer, {
+          originalname: req.file.originalname,
+          studyModality,
+          userId: req.userId,
+        });
+      }
+    } else {
+      uploaded = await saveBufferLocally(req.file.buffer, {
+        originalname: req.file.originalname,
+        studyModality,
+        userId: req.userId,
+      });
+    }
+
     const classScores = data.class_scores || data.classScores || {};
     let screeningResult = typeof data.result === "string" ? data.result : "";
     if (studyModality === "ultrasound") {
