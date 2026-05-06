@@ -1,8 +1,11 @@
 import axios from "axios";
 
 /** Do not set global Content-Type — it breaks multipart uploads (needs boundary). */
+const BASE_URL =
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: `${BASE_URL}/api`,
 });
 
 export function setAuthToken(token) {
