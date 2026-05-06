@@ -7,38 +7,41 @@ from app.model import load_all_bundles, preprocess_image, probs_from_output
 
 app = FastAPI(title="MedAI ML Service", version="1.0.0")
 
-BUNDLES = load_all_bundles()
+# 🔥 Lazy loading cache
+BUNDLES = {}
 ALLOWED_MODALITIES = {"xray", "ct", "ultrasound", "mri"}
+
+
+def get_bundle(modality: str):
+    if modality not in BUNDLES:
+        all_bundles = load_all_bundles()
+        BUNDLES[modality] = all_bundles[modality]
+    return BUNDLES[modality]
 
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "modalities": {
-            k: {
-                "model_loaded": v.model is not None,
-                "labels": v.labels,
-                "source_path": v.source_path,
-            }
-            for k, v in BUNDLES.items()
-        },
+        "loaded_modalities": list(BUNDLES.keys()),
     }
 
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), modality: str = Form("xray")):
     m = (modality or "xray").strip().lower()
+
     if m not in ALLOWED_MODALITIES:
         raise HTTPException(400, f"Unsupported modality: {modality}")
+
     if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(400, "Upload an image file (PNG, JPEG, etc.)")
+        raise HTTPException(400, "Upload an image file")
 
     raw = await file.read()
     if not raw:
         raise HTTPException(400, "Empty file")
 
-    bundle = BUNDLES[m]
+    bundle = get_bundle(m)
     labels = bundle.labels
     batch = preprocess_image(raw)
 
@@ -51,12 +54,15 @@ async def predict(file: UploadFile = File(...), modality: str = Form("xray")):
     idx = int(np.argmax(probs))
     label = labels[idx]
     confidence = float(probs[idx])
-    class_scores = {labels[i]: float(probs[i]) for i in range(len(labels))}
+
+    class_scores = {
+        labels[i]: float(probs[i]) for i in range(len(labels))
+    }
 
     return {
         "label": label,
         "confidence": round(confidence, 4),
         "class_scores": class_scores,
         "modality": m,
-        "model_source": "trained" if bundle.model is not None else "fallback_no_model",
+        "model_source": "trained" if bundle.model is not None else "fallback",
     }
