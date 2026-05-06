@@ -8,6 +8,8 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.js";
 import reportRoutes from "./routes/reports.js";
 
+
+
 dotenv.config();
 
 if (!process.env.JWT_SECRET) {
