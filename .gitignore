@@ -1,0 +1,34 @@
+# Node
+node_modules/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# ML / large files
+*.pkl
+*.h5
+*.keras
+*.pt
+*.joblib
+data/
+models/
+
+# Uploads (VERY IMPORTANT)
+server/uploads/
+
+# Env
+.env
+
+# Build
+build/
+dist/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

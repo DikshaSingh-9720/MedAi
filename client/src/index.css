@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    overflow-x: clip;
+  }
+  ::selection {
+    @apply bg-clinic-500/25 text-slate-900;
+  }
+  #root {
+    @apply min-h-dvh overflow-x-clip;
+  }
+}
+
+body {
+  @apply min-h-dvh overflow-x-clip text-slate-800 antialiased font-sans bg-slate-50;
+  background-image:
+    radial-gradient(ellipse 90% 50% at 50% -10%, rgba(6, 182, 212, 0.12), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(34, 211, 238, 0.06), transparent),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(rgba(15, 23, 42, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.028) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 72% 62% at 50% 22%, black 12%, transparent 68%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-2xl border border-slate-200/90 bg-white/90 backdrop-blur-xl shadow-sm;
+    box-shadow:
+      0 1px 3px 0 rgb(0 0 0 / 0.05),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .glass-panel-strong {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50;
+  }
+
+  .section-eyebrow {
+    @apply text-xs font-semibold uppercase text-clinic-600;
+    letter-spacing: 0.22em;
+  }
+
+  .input-field {
+    @apply w-full rounded-xl bg-slate-50/80 border border-slate-300/90 px-4 py-3.5 text-[15px] text-slate-900 placeholder:text-slate-400
+      transition-all duration-200
+      hover:border-slate-400 hover:bg-white
+      focus:outline-none focus:border-clinic-500 focus:bg-white focus:ring-2 focus:ring-clinic-500/25;
+    box-shadow: inset 0 1px 2px 0 rgba(15, 23, 42, 0.035);
+  }
+
+  .auth-card-surface {
+    @apply rounded-2xl border border-slate-200/95 bg-white;
+    box-shadow:
+      0 1px 2px 0 rgb(0 0 0 / 0.04),
+      0 12px 24px -8px rgb(15 23 42 / 0.08),
+      0 0 0 1px rgb(255 255 255 / 0.8) inset;
+  }
+
+  /* Keep inputs visually consistent when browsers autofill (yellow/blue backgrounds). */
+  .input-field:-webkit-autofill,
+  .input-field:-webkit-autofill:hover,
+  .input-field:-webkit-autofill:focus,
+  .input-field:-webkit-autofill:active {
+    -webkit-text-fill-color: #0f172a;
+    caret-color: #0f172a;
+    box-shadow: inset 0 0 0 100px #ffffff !important;
+    border-color: rgb(203 213 225);
+    transition: background-color 99999s ease-out;
+  }
+
+  .input-field:focus:-webkit-autofill {
+    box-shadow: inset 0 0 0 100px #ffffff !important, 0 0 0 2px rgba(6, 182, 212, 0.2) !important;
+    border-color: rgb(6 182 212);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold text-[15px] py-3.5 px-6
+      bg-gradient-to-r from-clinic-500 via-clinic-600 to-clinic-700 text-white
+      ring-1 ring-clinic-700/15
+      hover:brightness-[1.03] active:scale-[0.99]
+      disabled:opacity-40 disabled:pointer-events-none disabled:shadow-none
+      transition-all duration-200;
+    box-shadow:
+      0 4px 14px -4px rgba(14, 116, 144, 0.35),
+      0 2px 6px -2px rgba(15, 23, 42, 0.06);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-xl text-sm font-medium px-4 py-2.5
+      border border-slate-200 bg-white text-slate-700
+      hover:bg-slate-50 hover:border-slate-300 transition-colors duration-200;
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600;
+  }
+
+  .chip-active {
+    @apply border-clinic-300 bg-clinic-50 text-clinic-700;
+  }
+
+  /* Study type (X-ray / CT / Ultrasound) — high contrast for accessibility */
+  .study-type-btn {
+    @apply inline-flex items-center justify-center rounded-full border-2 border-slate-500 bg-white px-5 py-2.5 text-sm font-bold text-slate-900 shadow-md
+      transition-all duration-200 min-h-[48px] min-w-[5.5rem]
+      hover:bg-slate-50 hover:border-slate-600
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-clinic-600 focus-visible:ring-offset-2;
+  }
+
+  .study-type-btn-active {
+    @apply border-clinic-700 bg-clinic-600 text-white shadow-lg shadow-clinic-600/35
+      hover:bg-clinic-700 hover:border-clinic-700 hover:text-white;
+  }
+
+  .auth-label {
+    @apply block text-[13px] font-semibold uppercase tracking-[0.12em] text-slate-800 mb-2;
+  }
+
+  .auth-hint {
+    @apply text-xs text-slate-600 mt-2 leading-relaxed;
+  }
+
+  .auth-footer-link {
+    @apply font-semibold text-clinic-600 underline-offset-2 decoration-clinic-600/30 hover:text-clinic-700 hover:decoration-clinic-700/50;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700
+      shadow-sm hover:bg-red-50 hover:border-red-300 transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  }
+}
+
+@layer utilities {
+  .tabular-nums-feature {
+    font-variant-numeric: tabular-nums;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
