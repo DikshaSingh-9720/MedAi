@@ -324,4 +324,46 @@ router.post("/", upload.single("image"), async (req, res) => {
   }
 });
 
+router.delete("/:id", async (req, res) => {
+  try {
+    const reportId = req.params.id;
+
+    // DB check
+    if (!isDbReady()) {
+      const list = memoryListForUser(req.userId);
+      const index = list.findIndex((r) => r.id === reportId);
+      if (index === -1) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+
+      const removed = list.splice(index, 1)[0];
+      return res.json({ success: true, removed });
+    }
+
+    // DB delete
+    const report = await Report.findOneAndDelete({
+      _id: reportId,
+      userId: req.userId,
+    });
+
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+
+    // 🔥 Cloudinary delete (important)
+    if (report.imagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(report.imagePublicId);
+      } catch (e) {
+        console.warn("Cloudinary delete failed:", e.message);
+      }
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Delete failed" });
+  }
+});
+
 export default router;
