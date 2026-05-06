@@ -1,8 +1,8 @@
-import { getSimpleAnswer, simpleAnswerBadgeClass } from "../../utils/clinicalRules.js";
+import { getFindingLabel, getSimpleAnswer, simpleAnswerBadgeClass } from "../../utils/clinicalRules.js";
 
 export default function SimpleFindingDisplay({ predictionLabel, classScores, studyModality, screeningResult, compact }) {
   const { topic, answer } = getSimpleAnswer(predictionLabel, classScores, studyModality, screeningResult);
-  const word = answer === "yes" ? "Yes" : answer === "no" ? "No" : "Unclear";
+  const word = getFindingLabel(predictionLabel, classScores, studyModality, screeningResult);
   const badgeClass = simpleAnswerBadgeClass(answer);
 
   if (compact) {

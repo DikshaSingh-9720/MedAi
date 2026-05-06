@@ -142,6 +142,44 @@ export function getSimpleAnswer(predictionLabel, classScores, studyModality, scr
   return { topic: "Finding", answer: "unclear" };
 }
 
+export function getFindingLabel(predictionLabel, classScores, studyModality, screeningResult) {
+  const mod = studyModality || "xray";
+  const sr = String(screeningResult || "").trim();
+  const srLower = sr.toLowerCase();
+
+  if (mod === "ct") {
+    if (sr) return sr;
+    const t = String(predictionLabel || "").toLowerCase();
+    if (t.includes("normal")) return "NO LUNG CANCER (NORMAL)";
+    if (t.includes("malig")) return "LUNG CANCER DETECTED - MALIGNANT";
+    if (t.includes("benign") || t.includes("bengin")) return "LUNG CANCER DETECTED - BENIGN";
+    return "Lung CT result unavailable";
+  }
+
+  if (mod === "mri") {
+    if (srLower === "tumor" || srLower === "no tumor") return sr;
+    const t = String(predictionLabel || "").toLowerCase();
+    if (t.includes("notumor") || t.includes("no tumor")) return "No Tumor";
+    if (t.includes("glioma") || t.includes("meningioma") || t.includes("pituitary") || t.includes("tumor")) return "Tumor";
+    return sr || "MRI result unavailable";
+  }
+
+  if (mod === "ultrasound") {
+    if (srLower === "cancer" || srLower === "not cancer") return sr;
+    const t = String(predictionLabel || "").toLowerCase();
+    if (t.includes("not cancer") || t.includes("no cancer") || t.includes("normal")) return "Not Cancer";
+    if (t.includes("cancer") || t.includes("malignant")) return "Cancer";
+    return sr || "Ultrasound result unavailable";
+  }
+
+  // xray
+  if (sr) return sr;
+  const t = String(predictionLabel || "").toLowerCase();
+  if (t.includes("not fract") || t.includes("no fracture") || t.includes("normal")) return "Not Fractured";
+  if (t.includes("fractur")) return "Fractured";
+  return "X-ray result unavailable";
+}
+
 export function simpleAnswerBadgeClass(answer) {
   if (answer === "yes") return "bg-red-50 text-red-950 ring-red-200/90";
   if (answer === "no") return "bg-emerald-50 text-emerald-900 ring-emerald-200/70";

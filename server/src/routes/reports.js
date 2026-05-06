@@ -98,11 +98,81 @@ function normalizeUltrasoundResult(classScores, fallbackResult = "") {
   const pNot = Number(lower.get("not cancer") ?? lower.get("not_cancer") ?? -1);
   const pCan = Number(lower.get("cancer") ?? -1);
   if (pNot < 0 || pCan < 0) return fallbackResult || "";
-  const t = Number(process.env.MEDAI_US_RULE_THRESHOLD || 0.9999);
-  const margin = Number(process.env.MEDAI_US_RULE_MARGIN || 0.2);
-  if (pCan >= t && pCan - pNot >= margin) return "Breast Cancer Detected (Ultrasound)";
-  if (pNot >= t && pNot - pCan >= margin) return "No Breast Cancer Detected (Ultrasound)";
-  return "Ultrasound Result Inconclusive - Please retest/verify clinically";
+  // Match Colab final prediction code:
+  // if Cancer_score >= 0.85 -> "Cancer" else "Not Cancer"
+  const t = Number(process.env.MEDAI_US_CANCER_THRESHOLD || 0.85);
+  return pCan >= t ? "Cancer" : "Not Cancer";
+}
+
+function normalizeCtScanResult(predictionLabel, classScores, fallbackResult = "") {
+  const raw = String(predictionLabel || "").toLowerCase().replace(/_/g, " ").trim();
+  if (raw.includes("normal")) return "NO LUNG CANCER (NORMAL)";
+  if (raw.includes("malig")) return "LUNG CANCER DETECTED - MALIGNANT";
+  if (raw.includes("benign") || raw.includes("bengin")) return "LUNG CANCER DETECTED - BENIGN";
+
+  // Fallback to class-scores argmax when label is noisy/unknown.
+  const entries = Object.entries(classScores || {});
+  if (!entries.length) return fallbackResult || "";
+  const [topLabel] = entries.sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+  const t = String(topLabel || "").toLowerCase().replace(/_/g, " ").trim();
+  if (t.includes("normal")) return "NO LUNG CANCER (NORMAL)";
+  if (t.includes("malig")) return "LUNG CANCER DETECTED - MALIGNANT";
+  if (t.includes("benign") || t.includes("bengin")) return "LUNG CANCER DETECTED - BENIGN";
+  return fallbackResult || "";
+}
+
+function normalizeMriResult(predictionLabel, classScores, fallbackResult = "") {
+  const raw = String(predictionLabel || "").toLowerCase().replace(/_/g, " ").trim();
+  if (raw.includes("notumor") || raw.includes("no tumor") || raw === "notumor") {
+    return "No Tumor";
+  }
+  if (raw.includes("glioma") || raw.includes("meningioma") || raw.includes("pituitary")) {
+    return "Tumor";
+  }
+
+  // Fallback to class-score argmax when label text is inconsistent.
+  const entries = Object.entries(classScores || {});
+  if (!entries.length) return fallbackResult || "";
+  const [topLabel] = entries.sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+  const t = String(topLabel || "").toLowerCase().replace(/_/g, " ").trim();
+  if (t.includes("notumor") || t.includes("no tumor") || t === "notumor") return "No Tumor";
+  if (t.includes("glioma") || t.includes("meningioma") || t.includes("pituitary")) return "Tumor";
+  return fallbackResult || "";
+}
+
+function normalizeXrayResult(predictionLabel, classScores, fallbackResult = "") {
+  const raw = String(predictionLabel || "").toLowerCase().replace(/_/g, " ").trim();
+  const entries = Object.entries(classScores || {});
+  const lower = new Map(entries.map(([k, v]) => [String(k).toLowerCase(), Number(v)]));
+
+  // Colab-style threshold rule for binary models.
+  const t = Number(process.env.MEDAI_XRAY_POS_THRESHOLD || 0.85);
+
+  // If this xray model is fracture-oriented, return Fractured / Not Fractured.
+  const pFrac = Number(lower.get("fractured") ?? lower.get("fracture") ?? -1);
+  const pNotFrac = Number(lower.get("not fractured") ?? lower.get("not_fractured") ?? lower.get("normal") ?? -1);
+  if (pFrac >= 0 || pNotFrac >= 0 || raw.includes("fractur")) {
+    if (pFrac >= 0) return pFrac >= t ? "Fractured" : "Not Fractured";
+    if (raw.includes("not fract") || raw.includes("no fracture") || raw.includes("normal")) return "Not Fractured";
+    return "Fractured";
+  }
+
+  // If labels look cancer-oriented, use Cancer / Not Cancer style.
+  const pCan = Number(lower.get("cancer") ?? -1);
+  const pNotCan = Number(lower.get("not cancer") ?? lower.get("not_cancer") ?? -1);
+  if (pCan >= 0 || pNotCan >= 0 || raw.includes("cancer")) {
+    if (pCan >= 0) return pCan >= t ? "Cancer" : "Not Cancer";
+    if (raw.includes("not cancer") || raw.includes("no cancer")) return "Not Cancer";
+    return "Cancer";
+  }
+
+  // Generic binary fallback by top score.
+  if (entries.length === 2) {
+    const [topLabel, topScore] = entries.sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+    return Number(topScore) >= t ? String(topLabel) : `Not ${String(topLabel)}`;
+  }
+
+  return fallbackResult || "";
 }
 
 router.get("/", async (req, res) => {
@@ -184,6 +254,12 @@ router.post("/", upload.single("image"), async (req, res) => {
     let screeningResult = typeof data.result === "string" ? data.result : "";
     if (studyModality === "ultrasound") {
       screeningResult = normalizeUltrasoundResult(classScores, screeningResult);
+    } else if (studyModality === "ct") {
+      screeningResult = normalizeCtScanResult(data.label, classScores, screeningResult);
+    } else if (studyModality === "mri") {
+      screeningResult = normalizeMriResult(data.label, classScores, screeningResult);
+    } else if (studyModality === "xray") {
+      screeningResult = normalizeXrayResult(data.label, classScores, screeningResult);
     }
 
     if (!isDbReady()) {
